@@ -77,8 +77,8 @@ def extract_parts(input_image, params, model, model_params):
         score_mid = paf_avg[:, :, [x - 19 for x in util.hmapIdx[k]]]
         cand_a = all_peaks[util.limbSeq[k][0] - 1]
         cand_b = all_peaks[util.limbSeq[k][1] - 1]
-        n_a = len(cand_a)
-        n_b = len(cand_b)
+        n_a = len(cand_a)  # 候选的点a，连接ab
+        n_b = len(cand_b)  # 候选的点b，连接ab
         # index_a, index_b = util.limbSeq[k]
         if n_a != 0 and n_b != 0:
             connection_candidate = []
@@ -89,11 +89,11 @@ def extract_parts(input_image, params, model, model_params):
                     # failure case when 2 body parts overlaps
                     if norm == 0:
                         continue
-                    vec = np.divide(vec, norm)
+                    vec = np.divide(vec, norm)  # cos
 
                     startend = list(zip(np.linspace(cand_a[i][0], cand_b[j][0], num=mid_num),
                                         np.linspace(cand_a[i][1], cand_b[j][1], num=mid_num)))
-
+                    # 方向的置信度
                     vec_x = np.array(
                         [score_mid[int(round(startend[I][1])), int(round(startend[I][0])), 0]
                          for I in range(len(startend))])
@@ -101,17 +101,17 @@ def extract_parts(input_image, params, model, model_params):
                         [score_mid[int(round(startend[I][1])), int(round(startend[I][0])), 1]
                          for I in range(len(startend))])
 
-                    score_midpts = np.multiply(vec_x, vec[0]) + np.multiply(vec_y, vec[1])
+                    score_midpts = np.multiply(vec_x, vec[0]) + np.multiply(vec_y, vec[1])  # a*cos
                     score_with_dist_prior = sum(score_midpts) / len(score_midpts) + min(
-                        0.5 * input_image.shape[0] / norm - 1, 0)
-                    criterion1 = len(np.nonzero(score_midpts > params['thre2'])[0]) > 0.8 * len(
-                        score_midpts)
-                    criterion2 = score_with_dist_prior > 0
-                    if criterion1 and criterion2:
+                        0.5 * input_image.shape[0] / norm - 1, 0)  # 求均值，增加1个惩罚，连线过长
+                    criterion1 = len(np.nonzero(score_midpts > params['thre2'])[0]) > (0.8 * len(
+                        score_midpts))  # thre2=0.05，大于0.05的点超过8个
+                    criterion2 = score_with_dist_prior > 0  # 均值大于0
+                    if criterion1 and criterion2:  # 筛选连接点
                         connection_candidate.append([i, j, score_with_dist_prior,
                                                      score_with_dist_prior + cand_a[i][2] + cand_b[j][2]])
 
-            connection_candidate = sorted(connection_candidate, key=lambda x: x[2], reverse=True)
+            connection_candidate = sorted(connection_candidate, key=lambda x: x[2], reverse=True)  # 距离优先级排序，从大到小
             connection = np.zeros((0, 5))
             for c in range(len(connection_candidate)):
                 i, j, s = connection_candidate[c][0:3]
@@ -120,20 +120,20 @@ def extract_parts(input_image, params, model, model_params):
                     if len(connection) >= min(n_a, n_b):
                         break
 
-            connection_all.append(connection)
+            connection_all.append(connection)  # 18种连接，每种有多个
         else:
             special_k.append(k)
             connection_all.append([])
 
     # last number in each row is the total parts number of that person
     # the second last number in each row is the score of the overall configuration
-    subset = np.empty((0, 20))
-    candidate = np.array([item for sublist in all_peaks for item in sublist])
+    subset = np.empty((0, 20))  # 18维是身体，最后一维是身体部分，倒数第二维是身体概率
+    candidate = np.array([item for sublist in all_peaks for item in sublist])  # 转换成矩阵
 
     for k in range(len(util.hmapIdx)):
         if k not in special_k:
-            part_as = connection_all[k][:, 0]
-            part_bs = connection_all[k][:, 1]
+            part_as = connection_all[k][:, 0]  # 第1个点的索引
+            part_bs = connection_all[k][:, 1]  # 第2个点的索引
             index_a, index_b = np.array(util.limbSeq[k]) - 1
 
             for i in range(len(connection_all[k])):  # = 1:size(temp,1)
@@ -175,10 +175,10 @@ def extract_parts(input_image, params, model, model_params):
     # delete some rows of subset which has few parts occur
     delete_idx = []
     for i in range(len(subset)):
-        if subset[i][-1] < 4 or subset[i][-2] / subset[i][-1] < 0.4:
+        if subset[i][-1] < 4 or subset[i][-2] / subset[i][-1] < 0.4:  # 小于4个部分，或者平均值小于0.4
             delete_idx.append(i)
     subset = np.delete(subset, delete_idx, axis=0)
-
+    # all_peaks，全部点的序列，subset，每一个人的集合
     return all_peaks, subset, candidate
 
 
@@ -193,8 +193,8 @@ def draw(input_image, all_peaks, subset, candidate, resize_fac=1):
 
     stickwidth = 4
 
-    for i in range(17):
-        for s in subset:
+    for s in subset:
+        for i in range(17):
             index = s[np.array(util.limbSeq[i]) - 1]
             if -1 in index:
                 continue
