@@ -1,12 +1,18 @@
-import argparse
-import time
+#!/usr/bin/env python
+# -- coding: utf-8 --
+"""
+Copyright (c) 2019. All rights reserved.
+Created by C. L. Wang on 2019/10/18
+"""
 
-import cv2
 import os
+import cv2
+import time
+import argparse
 
 from root_dir import ROOT_DIR, DATA_DIR
 
-from processing import extract_parts, draw
+from processing import extract_parts, draw, draw_skeleton
 
 from config_reader import config_reader
 from model.cmu_model import get_testing_model
@@ -65,13 +71,14 @@ def predict_img(image_path, model, output_img, output_pos):
         else:
             write_line(output_pos, "")
 
-    canvas = draw(input_image, all_peaks, subset, candidate)
+    # canvas = draw(input_image, all_peaks, subset, candidate)
+    canvas = draw_skeleton(input_image, subset, candidate)
 
     cv2.imwrite(output_img, canvas)
     cv2.destroyAllWindows()
 
 
-def main():
+def process_img_batch():
     keras_weights_file = os.path.join(ROOT_DIR, "model/keras/model.h5")
     output_img_dir = os.path.join(DATA_DIR, "results")
     output_pos_dir = os.path.join(DATA_DIR, "pos")
@@ -89,8 +96,8 @@ def main():
         predict_img(path, model, output_img, output_pos)
 
 
-def test_target():
-    img_path = os.path.join(DATA_DIR, 'aoa.jpg')
+def process_one_img():
+    img_path = os.path.join(DATA_DIR, 'test_img.jpg')
     keras_weights_file = os.path.join(ROOT_DIR, "model/keras/model.h5")
     model = get_testing_model()
     model.load_weights(keras_weights_file)
@@ -100,6 +107,10 @@ def test_target():
     predict_img(img_path, model, output_img, output_pos)
 
 
+def main():
+    process_one_img()  # 处理一张图像
+    process_img_batch()  # 处理多张图像
+
+
 if __name__ == '__main__':
-    # main()
-    test_target()
+    main()
