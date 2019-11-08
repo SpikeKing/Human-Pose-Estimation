@@ -1,8 +1,15 @@
+#!/usr/bin/env python
+# -- coding: utf-8 --
+"""
+Copyright (c) 2019. All rights reserved.
+Created by C. L. Wang on 2019/10/18
+"""
+
 import math
 
+import cv2
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter
-import cv2
 
 import util
 
@@ -182,6 +189,119 @@ def extract_parts(input_image, params, model, model_params):
     return all_peaks, subset, candidate
 
 
+def draw_skeleton(input_image, subset, candidate):
+    """
+    通过已有的
+    :param input_image:
+    :param subset:
+    :param candidate:
+    :return:
+    """
+    canvas = np.ones(input_image.shape) * 255
+
+    cx, cy, cr, nx, ny = 0, 0, 0, 0, 0  # 头部
+    px, py, rhip_x, rhip_y, lhip_x, lhip_y, p_ax, p_ay = 0, 0, 0, 0, 0, 0, 0, 0  # 身体
+    relb_x, relb_y, lelb_x, lelb_y, rwri_x, rwri_y, lwri_x, lwri_y = 0, 0, 0, 0, 0, 0, 0, 0  # 上身
+    rkne_x, rkne_y, lkne_x, lkne_y, rank_x, rank_y, lank_x, lank_y = 0, 0, 0, 0, 0, 0, 0, 0  # 下身
+
+    black_color = (0, 0, 0)  # 黑色
+    # red_color = (0, 0, 255)  # 红色，用于排查Bug
+
+    idx_nose, idx_neck = -1, -1
+    idx_rhip, idx_lhip = -1, -1
+    idx_relb, idx_lelb, idx_rwri, idx_lwri = -1, -1, -1, -1
+    idx_rkne, idx_lkne, idx_rank, idx_lank = -1, -1, -1, -1
+
+    for s in subset:
+        # print('[Info] set: {}'.format(s))
+        if s[19] < 15:
+            continue
+
+        # 绘制头部
+        idx_nose = int(s[0])
+        cx, cy = int(candidate[idx_nose, 0]), int(candidate[idx_nose, 1])
+
+        idx_neck = int(s[1])
+        nx, ny = int(candidate[idx_neck, 0]), int(candidate[idx_neck, 1])  # 脖子
+
+        tmp_a = math.sqrt(math.pow((cx - nx), 2) + math.pow((cy - ny), 2))
+        cr = int(tmp_a // 3 * 2)
+
+        # 绘制身子
+        pa, pb = int((cr / tmp_a) * (nx - cx)), int((cr / tmp_a) * (ny - cy))
+        px, py = int(cx + pa), int(cy + pb)  # 头和身的连接点
+
+        idx_rhip = int(s[8])
+        rhip_x, rhip_y = int(candidate[idx_rhip, 0]), int(candidate[idx_rhip, 1])
+
+        idx_lhip = int(s[11])
+        lhip_x, lhip_y = int(candidate[idx_lhip, 0]), int(candidate[idx_lhip, 1])
+
+        p_ax = int(min(rhip_x, lhip_x) + abs(rhip_x - lhip_x) / 2)
+        p_ay = int(min(rhip_y, lhip_y) + abs(rhip_y - lhip_y) / 2)
+
+        # 绘制上身
+        idx_relb = int(s[3])  # 右肘部
+        relb_x, relb_y = int(candidate[idx_relb, 0]), int(candidate[idx_relb, 1])
+
+        idx_lelb = int(s[6])  # 左肘部
+        lelb_x, lelb_y = int(candidate[idx_lelb, 0]), int(candidate[idx_lelb, 1])
+
+        idx_rwri = int(s[4])  # 右腕
+        rwri_x, rwri_y = int(candidate[idx_rwri, 0]), int(candidate[idx_rwri, 1])
+
+        idx_lwri = int(s[7])  # 左腕
+        lwri_x, lwri_y = int(candidate[idx_lwri, 0]), int(candidate[idx_lwri, 1])
+
+        # 绘制下身
+        idx_rkne = int(s[9])  # 右膝盖
+        rkne_x, rkne_y = int(candidate[idx_rkne, 0]), int(candidate[idx_rkne, 1])
+
+        idx_lkne = int(s[12])  # 左膝盖
+        lkne_x, lkne_y = int(candidate[idx_lkne, 0]), int(candidate[idx_lkne, 1])
+
+        idx_rank = int(s[10])  # 右脚
+        rank_x, rank_y = int(candidate[idx_rank, 0]), int(candidate[idx_rank, 1])
+
+        idx_lank = int(s[13])  # 左脚
+        lank_x, lank_y = int(candidate[idx_lank, 0]), int(candidate[idx_lank, 1])
+
+    if idx_nose != -1 and idx_neck != -1:
+        cv2.circle(canvas, center=(cx, cy), radius=cr, color=black_color, thickness=4)  # 绘制头部
+
+    if idx_neck != -1 and idx_rhip != -1 and idx_lhip != -1:
+        cv2.line(canvas, pt1=(px, py), pt2=(nx, ny), color=black_color, thickness=4)  # 绘制身体
+        cv2.line(canvas, pt1=(nx, ny), pt2=(p_ax, p_ay), color=black_color, thickness=4)  # 绘制身体
+
+    if idx_neck != -1 and idx_relb != -1:
+        cv2.line(canvas, pt1=(nx, ny), pt2=(relb_x, relb_y), color=black_color, thickness=4)  # 绘制右臂
+    if idx_neck != -1 and idx_lelb != -1:
+        cv2.line(canvas, pt1=(nx, ny), pt2=(lelb_x, lelb_y), color=black_color, thickness=4)  # 绘制左臂
+
+    if idx_relb != -1 and idx_rwri != -1:
+        cv2.line(canvas, pt1=(relb_x, relb_y), pt2=(rwri_x, rwri_y), color=black_color, thickness=4)  # 绘制右臂
+    if idx_lelb != -1 and idx_lwri != -1:
+        cv2.line(canvas, pt1=(lelb_x, lelb_y), pt2=(lwri_x, lwri_y), color=black_color, thickness=4)  # 绘制左臂
+
+    if idx_rkne != -1:
+        cv2.line(canvas, pt1=(p_ax, p_ay), pt2=(rkne_x, rkne_y), color=black_color, thickness=4)  # 绘制右腿
+    if idx_lkne != -1:
+        cv2.line(canvas, pt1=(p_ax, p_ay), pt2=(lkne_x, lkne_y), color=black_color, thickness=4)  # 绘制左腿
+
+    if idx_rkne != -1 and idx_rank != -1:
+        cv2.line(canvas, pt1=(rkne_x, rkne_y), pt2=(rank_x, rank_y), color=black_color, thickness=4)  # 绘制右下腿
+    if idx_lkne != -1 and idx_lank != -1:
+        cv2.line(canvas, pt1=(lkne_x, lkne_y), pt2=(lank_x, lank_y), color=black_color, thickness=4)  # 绘制左腿
+
+    # canvas = np.where(canvas == 0, 255, canvas)
+    # c_max, c_min = np.max(canvas), np.min(canvas)
+    # print('[Info] 绘制图像max: {}, min: {}'.format(c_max, c_min))
+
+    canvas = canvas.astype(np.uint8)
+
+    return canvas
+
+
 def draw(input_image, all_peaks, subset, candidate, resize_fac=1):
     canvas = input_image.copy()
 
@@ -191,9 +311,11 @@ def draw(input_image, all_peaks, subset, candidate, resize_fac=1):
             b = all_peaks[i][j][1] * resize_fac
             cv2.circle(canvas, (a, b), 2, util.colors[i], thickness=-1)
 
-    stickwidth = 4
+    stick_width = 4
 
     for s in subset:
+        if s[18] < 25:
+            continue
         for i in range(17):
             index = s[np.array(util.limbSeq[i]) - 1]
             if -1 in index:
@@ -206,7 +328,7 @@ def draw(input_image, all_peaks, subset, candidate, resize_fac=1):
             length = ((x[0] - x[1]) ** 2 + (y[0] - y[1]) ** 2) ** 0.5
             angle = math.degrees(math.atan2(x[0] - x[1], y[0] - y[1]))
             polygon = cv2.ellipse2Poly((int(m_y * resize_fac), int(m_x * resize_fac)),
-                                       (int(length * resize_fac / 2), stickwidth), int(angle), 0, 360, 1)
+                                       (int(length * resize_fac / 2), stick_width), int(angle), 0, 360, 1)
             cv2.fillConvexPoly(cur_canvas, polygon, util.colors[i])
             canvas = cv2.addWeighted(canvas, 0.4, cur_canvas, 0.6, 0)
 
