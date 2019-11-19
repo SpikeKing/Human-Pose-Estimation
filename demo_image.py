@@ -109,7 +109,7 @@ def process_one_img():
 
 def main():
     process_one_img()  # 处理一张图像
-    process_img_batch()  # 处理多张图像
+    # process_img_batch()  # 处理多张图像
 
 
 if __name__ == '__main__':
