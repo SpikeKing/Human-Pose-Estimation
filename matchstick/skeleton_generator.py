@@ -6,7 +6,12 @@ Created by C. L. Wang on 2019/11/18
 """
 
 import os
+import sys
 import cv2
+
+p = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if p not in sys.path:
+    sys.path.append(p)
 
 from config_reader import config_reader
 from matchstick.matchstick_skeleton import MatchstickSkeleton
@@ -34,7 +39,7 @@ class SkeletonGenerator(object):
         params, model_params = config_reader(self.config_path)
         return model, params, model_params
 
-    def generate(self):
+    def generate(self, is_draw_video):
         cap = cv2.VideoCapture(self.vid_path)
         n_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = int(cap.get(cv2.CAP_PROP_FPS))  # 24
