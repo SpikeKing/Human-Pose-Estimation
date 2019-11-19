@@ -39,7 +39,7 @@ class SkeletonGenerator(object):
         params, model_params = config_reader(self.config_path)
         return model, params, model_params
 
-    def generate(self, is_draw_video):
+    def generate(self):
         cap = cv2.VideoCapture(self.vid_path)
         n_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = int(cap.get(cv2.CAP_PROP_FPS))  # 24
