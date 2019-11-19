@@ -151,7 +151,7 @@ def create_file(file_name):
         os.remove(file_name)  # 删除已有文件
     if not os.path.exists(file_name):
         print("文件不存在，创建文件：%s" % file_name)
-        open(file_name, 'wb').close()
+        open(file_name, 'a').close()
 
 
 def remove_punctuation(line):
