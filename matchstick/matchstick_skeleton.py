@@ -14,6 +14,10 @@ from root_dir import DATA_DIR
 
 
 class MatchstickSkeleton(object):
+    """
+    火柴人的骨骼类
+    """
+
     def __init__(self, subset, candidate, image):
         self.s = self.get_main_person(subset)
         self.candidate = candidate
@@ -23,9 +27,11 @@ class MatchstickSkeleton(object):
         # 右脚10, 左脚13]
         self.n_parts = 12
         self.parts = [int(self.s[i]) for i in [0, 1, 8, 11, 3, 6, 4, 7, 9, 12, 10, 13]]
-        self.skt = self.generate_skeleton()
+        self.skt = None
 
     def get_skeleton(self):
+        if not self.skt:
+            self.skt = self.generate_skeleton()
         return self.skt
 
     @staticmethod
@@ -183,6 +189,10 @@ class MatchstickSkeleton(object):
         sin_data = x / p_len
         deg = np.rad2deg(np.arcsin(sin_data))  # arcsin(0.5) = 30°
 
+        y = point_a[1] - point_b[1]
+        if y > 0:
+            deg = ((-1) * deg + 180) % 360
+
         return deg, p_len  # 角度
 
     @staticmethod
@@ -250,7 +260,7 @@ class MatchstickSkeleton(object):
         :return: 经过偏移的起始点，调整过的图像
         """
         ih, iw, _ = img_opencv.shape
-        print('[Info] img shape: {}'.format(img_opencv.shape))
+        # print('[Info] img shape: {}'.format(img_opencv.shape))
 
         scale_h = radius * 2 / ih
         scale_w = radius * 2 / iw
@@ -272,10 +282,10 @@ class MatchstickSkeleton(object):
         """
 
         ih, iw, _ = img_opencv.shape
-        print('[Info] img shape: {}'.format(img_opencv.shape))
+        # print('[Info] img shape: {}'.format(img_opencv.shape))
 
         p_degree, p_len = MatchstickSkeleton.points2degree(pa, pb)  # 计算角度
-        print('[Info] 旋转角度: {}'.format(p_degree))
+        # print('[Info] 旋转角度: {}'.format(p_degree))
 
         scale = p_len / ih  # 两个点的长度 除以 图像的高
 
@@ -285,9 +295,12 @@ class MatchstickSkeleton(object):
         img_rotated = MatchstickSkeleton.rotate_bound(img_opencv_white, p_degree)  # 旋转图像
 
         img_ry, img_rx = img_rotated.shape[0], img_rotated.shape[1]
-        p_ly, p_lx = abs(pb[1] - pa[1]), abs(pb[0] - pa[0])
 
-        start_point = min(pa[0], pb[0]), min(pa[1], pb[1])
+        # p_ly, p_lx = abs(pb[1] - pa[1]), abs(pb[0] - pa[0])
+        # start_point = min(pa[0], pb[0]), min(pa[1], pb[1])
+
+        p_ly, p_lx = pb[1] - pa[1], pb[0] - pa[0]
+        start_point = pa[0], pa[1]
 
         po_x = start_point[0] - abs(p_lx - img_rx) // 2  # 偏移量x
         po_y = start_point[1] - abs(p_ly - img_ry) // 2  # 偏移量y
@@ -362,7 +375,8 @@ class MatchstickSkeleton(object):
         :param frame_shape: 四通道frame
         :return: 白色透明背景
         """
-        canvas = np.ones(frame_shape) * 255
+        h, w, _ = frame_shape
+        canvas = np.ones((h, w, 4)) * 255
         canvas_alpha = np.zeros(frame_shape[0:2])
         canvas[:, :, 3] = canvas_alpha
         canvas = canvas.astype(np.uint8)
@@ -374,7 +388,7 @@ class MatchstickSkeleton(object):
         绘制PNG直线，倾斜矩形
         """
         # width参数是生成的宽度
-        (po_x, po_y), img_rotated_rgba = MatchstickSkeleton.generate_png_line(img_png, pt1, pt2, width=100)
+        (po_x, po_y), img_rotated_rgba = MatchstickSkeleton.generate_png_line(img_png, pt1, pt2, width=50)
         # 已经绘制在Canvas上
         # canvas = MatchstickSkeleton.overlay_transparent(canvas, img_rotated_rgba, po_x, po_y)
         canvas = MatchstickSkeleton.paste_png_on_bkg(canvas, img_rotated_rgba, po_x, po_y, mode=mode)
@@ -502,6 +516,94 @@ class MatchstickSkeleton(object):
             MatchstickSkeleton.draw_png_line(canvas, img_png=png_list[3], pt1=skt[9], pt2=skt[11],
                                              color=black_color, thickness=tn)
             # cv2.line(canvas, pt1=skt[9], pt2=skt[11], color=black_color, thickness=tn)
+        else:
+            print('[Warning] 左下腿缺失')
+
+        canvas = canvas.astype(np.uint8)
+
+        return canvas
+
+    @staticmethod
+    def draw_png_demo(image_shape, skt, canvas, png_list):
+        """
+        绘制PNG图像
+        :param image_shape:
+        :param skt:
+        :param canvas:
+        :param png_list: [头0, 身体1, 左腿上2, 左腿下3, 右腿上4, 右腿下5, 左臂上6, 左臂下7, 右臂上8, 右臂下9]
+        :return:
+        """
+        black_color = (0, 0, 0)
+        tn = 3
+        img_part_path = os.path.join(DATA_DIR, 'custom', 'corn.png')
+        img_part_png = cv2.imread(img_part_path, cv2.IMREAD_UNCHANGED)  # 读取PNG图像
+        img_head_path = os.path.join(DATA_DIR, 'custom', 'watermelon.png')
+        img_head_png = cv2.imread(img_head_path, cv2.IMREAD_UNCHANGED)  # 读取PNG图像
+
+        r, body_sp, body_ep = MatchstickSkeleton.get_other_parameters(skt[0], skt[1], skt[2], skt[3])
+
+        if skt[0][0] != 0 and r > 0:  # 头部
+            MatchstickSkeleton.draw_png_square(canvas, img_png=img_head_png, center=skt[0], radius=r,
+                                               color=black_color, thickness=tn)  # 绘制头部
+            cv2.circle(canvas, skt[0], 10, color=(0, 0, 255, 255), thickness=-1)
+        else:
+            print('[Warning] 头部缺失: 点 {}, 半径 {}'.format(skt[0], r))
+
+        if skt[1][0] != 0 and skt[2][0] != 0 and skt[3][0] != 0:  # 绘制身躯，头到脖子，脖子到屁股
+            MatchstickSkeleton.draw_png_line(canvas, img_png=img_part_png, pt1=skt[1], pt2=body_ep,
+                                             color=black_color, thickness=tn)  # 绘制身体
+        else:
+            print('[Warning] 身体缺失')
+
+        if skt[1][0] != 0 and skt[4][0] != 0:  # 绘制右上臂
+            MatchstickSkeleton.draw_png_line(canvas, img_png=img_part_png, pt1=skt[1], pt2=skt[4],
+                                             color=black_color, thickness=tn)
+        else:
+            print('[Warning] 右上臂缺失')
+
+        if skt[1][0] != 0 and skt[5][0] != 0:  # 绘制左上臂
+            MatchstickSkeleton.draw_png_line(canvas, img_png=img_part_png, pt1=skt[1], pt2=skt[5],
+                                             color=black_color, thickness=tn)
+        else:
+            print('[Warning] 左上臂缺失')
+
+        if skt[4][0] != 0 and skt[6][0] != 0:  # 绘制右下臂
+            MatchstickSkeleton.draw_png_line(canvas, img_png=img_part_png, pt1=skt[4], pt2=skt[6],
+                                             color=black_color, thickness=tn)
+            cv2.circle(canvas, skt[4], 10, color=(0, 128, 128, 255), thickness=-1)
+            cv2.circle(canvas, skt[6], 10, color=(128, 0, 128, 255), thickness=-1)
+        else:
+            print('[Warning] 右下臂缺失')
+
+        if skt[5][0] != 0 and skt[7][0] != 0:  # 绘制左下臂
+            MatchstickSkeleton.draw_png_line(canvas, img_png=img_part_png, pt1=skt[5], pt2=skt[7],
+                                             color=black_color, thickness=tn)
+            cv2.circle(canvas, skt[5], 10, color=(0, 128, 128, 255), thickness=-1)
+            cv2.circle(canvas, skt[7], 10, color=(128, 0, 128, 255), thickness=-1)
+        else:
+            print('[Warning] 左下臂缺失')
+
+        if skt[2][0] != 0 and skt[3][0] != 0 and skt[8][0] != 0:  # 绘制右上腿
+            MatchstickSkeleton.draw_png_line(canvas, img_png=img_part_png, pt1=body_ep, pt2=skt[8],
+                                             color=black_color, thickness=tn)
+        else:
+            print('[Warning] 右上腿缺失')
+
+        if skt[2][0] != 0 and skt[3][0] != 0 and skt[9][0] != 0:  # 绘制左上腿
+            MatchstickSkeleton.draw_png_line(canvas, img_png=img_part_png, pt1=body_ep, pt2=skt[9],
+                                             color=black_color, thickness=tn)
+        else:
+            print('[Warning] 左上腿缺失')
+
+        if skt[8][0] != 0 and skt[10][0] != 0:  # 绘制右下腿
+            MatchstickSkeleton.draw_png_line(canvas, img_png=img_part_png, pt1=skt[8], pt2=skt[10],
+                                             color=black_color, thickness=tn)
+        else:
+            print('[Warning] 右下腿缺失')
+
+        if skt[9][0] != 0 and skt[11][0] != 0:  # 绘制左下腿
+            MatchstickSkeleton.draw_png_line(canvas, img_png=img_part_png, pt1=skt[9], pt2=skt[11],
+                                             color=black_color, thickness=tn)
         else:
             print('[Warning] 左下腿缺失')
 

@@ -91,14 +91,17 @@ class PartsSegmentation(object):
         r_arm_crop_draw = self.rotate_bound(r_arm_crop_draw, right_arm_angle)
         r_arm_crop, r_arm_crop_draw = self.remove_png_draw_bkg(r_arm_crop, r_arm_crop_draw)
 
-        self.show_png(l_arm_crop_draw)  # 测试
-        self.show_png(r_arm_crop_draw)  # 测试
+        # self.show_png(l_arm_crop_draw)  # 测试
+        # self.show_png(r_arm_crop_draw)  # 测试
 
         # 切分4个肢体
         (_, left_leg_up), (_, left_leg_down) = self.split_up_down_part(l_leg_crop, l_leg_crop_draw)
         (_, right_leg_up), (_, right_leg_down) = self.split_up_down_part(r_leg_crop, r_leg_crop_draw)
         (_, left_arm_up), (_, left_arm_down) = self.split_up_down_part(l_arm_crop, l_arm_crop_draw)
         (_, right_arm_up), (_, right_arm_down) = self.split_up_down_part(r_arm_crop, r_arm_crop_draw)
+
+        # self.show_png(head_crop)  # 测试
+        # self.show_png(body_crop)  # 测试
         # self.show_png(left_leg_up)  # 测试
         # self.show_png(left_leg_down)  # 测试
         # self.show_png(right_leg_up)  # 测试
@@ -108,12 +111,40 @@ class PartsSegmentation(object):
         # self.show_png(right_arm_up)  # 测试
         # self.show_png(right_arm_down)  # 测试
 
+        # self.save_png(body_crop)  # 存储身体
+
+        body_crop = self.retain_center_trick(body_crop)
+
         # 拆解部分
         # [头, 身体, 左腿上, 左腿下, 右腿上, 右腿下, 左臂上, 左臂下, 右臂上, 右臂下]
         png_parts = [head_crop, body_crop, left_leg_up, left_leg_down, right_leg_up, right_leg_down,
                      left_arm_up, left_arm_down, right_arm_up, right_arm_down]
 
         return png_parts
+
+    @staticmethod
+    def retain_center_trick(img_png):
+        """
+        保留中间的数据
+        :param img_png: 图像PNG
+        :return: 生成的PNG
+        """
+        # img_path = os.path.join(DATA_DIR, 'custom', 'img_png.20191120110859.png')
+        # img_png = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
+        h, w, _ = img_png.shape
+
+        canvas = np.ones(img_png.shape) * 255
+        canvas_alpha = np.zeros((h, w))
+        canvas[:, :, 3] = canvas_alpha
+        canvas = canvas.astype(np.uint8)
+
+        w_s, w_e = (w // 3), (w * 2 // 3)
+        canvas[:, w_s:w_e, :] = img_png[:, w_s:w_e, :]
+
+        # x = convert_transparent_png(canvas)
+        # PartsSegmentation.show_png(x)
+
+        return canvas
 
     @staticmethod
     def read_png(img_png_path):
