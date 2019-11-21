@@ -18,16 +18,19 @@ class PartsSegmentation(object):
     身体部分的分割类
     """
 
-    def __init__(self, img_png_path, img_config_path, img_draw_path):
+    def __init__(self, img_draw, img_png, img_config_path):
         """
         待分割的图像，待分割的参数
-        :param img_draw_path: 用户绘制的图像
-        :param img_png_path: PNF路径
-        :param img_config_path: PNG配置
+        :param img_draw: 用户绘制图像
+        :param img_png: 背景图像
+        :param img_config_path: 背景图像配置
         """
-        self.img_png = self.read_png(img_png_path)
+        # self.img_png = self.read_png(img_png_path)
+        # self.img_config = self.read_config(img_config_path)
+        # self.img_draw = self.read_png(img_draw_path)
+        self.img_draw = img_draw
+        self.img_png = img_png
         self.img_config = self.read_config(img_config_path)
-        self.img_draw = self.read_png(img_draw_path)
 
     def process(self):
         """
@@ -111,9 +114,10 @@ class PartsSegmentation(object):
         # self.show_png(right_arm_up)  # 测试
         # self.show_png(right_arm_down)  # 测试
 
-        # self.save_png(body_crop)  # 存储身体
+        # self.save_png(head_crop)  # 存储，测试
 
         body_crop = self.retain_center_trick(body_crop)
+        head_crop = self.crop_center_trick(head_crop)
 
         # 拆解部分
         # [头, 身体, 左腿上, 左腿下, 右腿上, 右腿下, 左臂上, 左臂下, 右臂上, 右臂下]
@@ -121,6 +125,41 @@ class PartsSegmentation(object):
                      left_arm_up, left_arm_down, right_arm_up, right_arm_down]
 
         return png_parts
+
+    @staticmethod
+    def crop_center_trick(img_png):
+        """
+        保留最小方形的头部
+        :param img_png: 图像PNG
+        :return: 生成的PNG
+        """
+        # img_path = os.path.join(DATA_DIR, 'custom', 'img_png.20191120142845.png')
+        # img_png = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
+        h, w, _ = img_png.shape
+        img_alpha = img_png[:, :, 3] // 255
+
+        x_list, y_list = np.where(img_alpha == 1)
+        x_min = np.min(x_list)
+        x_max = np.max(x_list)
+        y_min = np.min(y_list)
+        y_max = np.max(y_list)
+
+        xl, yl = x_max - x_min, y_max - y_min
+        if xl > yl:
+            yh = int((xl - yl) // 2)
+            y_min = max(0, y_min - yh)
+            y_max = min(w, y_max + yh)
+            img_crop = img_png[x_min:x_max, y_min:y_max]
+        else:
+            xh = int((yl - xl) // 2)
+            x_min = max(0, x_min - xh)
+            x_max = min(h, x_max + xh)
+            img_crop = img_png[x_min:x_max, y_min:y_max]
+
+        # x = convert_transparent_png(img_crop)
+        # PartsSegmentation.show_png(x)
+
+        return img_crop
 
     @staticmethod
     def retain_center_trick(img_png):

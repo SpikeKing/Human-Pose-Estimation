@@ -28,6 +28,7 @@ class MatchstickSkeleton(object):
         self.n_parts = 12
         self.parts = [int(self.s[i]) for i in [0, 1, 8, 11, 3, 6, 4, 7, 9, 12, 10, 13]]
         self.skt = None
+        self.head_radius = 20  # 头部半径参数
 
     def get_skeleton(self):
         if not self.skt:
@@ -124,7 +125,8 @@ class MatchstickSkeleton(object):
         """
         ll = math.sqrt(math.pow((head_p[0] - neck_p[0]), 2) + math.pow((head_p[1] - neck_p[1]), 2))
         # r = int(ll // 3 * 2)
-        r = int(ll)
+        # r = int(ll)
+        r = 100
 
         body_ex = int(min(rhip_p[0], lhip_p[0]) + abs(rhip_p[0] - lhip_p[0]) / 2)
         body_ey = int(min(rhip_p[1], lhip_p[1]) + abs(rhip_p[1] - lhip_p[1]) / 2)
@@ -136,6 +138,30 @@ class MatchstickSkeleton(object):
         body_sx, body_sy = int(head_p[0] + pa), int(head_p[1] + pb)  # 头和身的连接点
 
         return r, (body_sx, body_sy), (body_ex, body_ey)
+
+    @staticmethod
+    def get_other_parameters_v2(head_p, neck_p, rhip_p, lhip_p):
+        """
+        根据颈部，生成头部的点
+        :param head_p: 已有头部的点，未使用
+        :param neck_p: 颈部的点
+        :param rhip_p: 右臀部
+        :param lhip_p: 左臀部
+        :return: 头部半径, 头部中心点, 身体结束点
+        """
+        r = 50
+        body_ex = int(min(rhip_p[0], lhip_p[0]) + abs(rhip_p[0] - lhip_p[0]) / 2)
+        body_ey = int(min(rhip_p[1], lhip_p[1]) + abs(rhip_p[1] - lhip_p[1]) / 2)
+
+        # ll = math.sqrt(math.pow((body_ex - neck_p[0]), 2) + math.pow((body_ey - neck_p[1]), 2))
+        # r = int(ll // 2)
+
+        # pa, pb = int((r / ll) * (neck_p[0] - head_p[0])), int((r / ll) * (neck_p[1] - head_p[1]))
+        # body_sx, body_sy = int(head_p[0] + pa), int(head_p[1] + pb)  # 头和身的连接点
+
+        head_p = neck_p[0], neck_p[1] - r
+
+        return r, head_p, (body_ex, body_ey)
 
     @staticmethod
     def resize_skt(skt, scale, off, f_skt=None):
@@ -421,12 +447,13 @@ class MatchstickSkeleton(object):
         # img_head_path = os.path.join(DATA_DIR, 'custom', 'watermelon.png')
         # img_head_png = cv2.imread(img_head_path, cv2.IMREAD_UNCHANGED)  # 读取PNG图像
 
-        r, body_sp, body_ep = MatchstickSkeleton.get_other_parameters(skt[0], skt[1], skt[2], skt[3])
+        # r, body_sp, body_ep = MatchstickSkeleton.get_other_parameters(skt[0], skt[1], skt[2], skt[3])
+        r, head_p, body_ep = MatchstickSkeleton.get_other_parameters_v2(skt[0], skt[1], skt[2], skt[3])
 
         if skt[0][0] != 0 and r > 0:  # 头部
             # img_head_path = os.path.join(DATA_DIR, 'parts', '2-head.out.png')
             # img_head_png = cv2.imread(img_head_path, cv2.IMREAD_UNCHANGED)  # 读取PNG图像
-            MatchstickSkeleton.draw_png_square(canvas, img_png=png_list[0], center=skt[0], radius=r,
+            MatchstickSkeleton.draw_png_square(canvas, img_png=png_list[0], center=head_p, radius=r,
                                                color=black_color, thickness=tn)  # 绘制头部
             # cv2.circle(canvas, center=skt[0], radius=r, color=black_color, thickness=tn)  # 绘制头部
         else:

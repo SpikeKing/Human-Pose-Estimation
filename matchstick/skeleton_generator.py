@@ -191,13 +191,13 @@ class SkeletonGenerator(object):
         print('[Info] 视频写入完成! ')
 
     @staticmethod
-    def generate_body_parts(img_png_path, img_draw_path, img_config_path):
+    def generate_body_parts(img_draw, img_png, img_config_path):
         """
         由PNG图像生成10个身体部分
         :return: 10个身体部分
         """
 
-        ps = PartsSegmentation(img_png_path, img_config_path, img_draw_path)
+        ps = PartsSegmentation(img_draw, img_png, img_config_path)
         png_parts = ps.process()
 
         return png_parts
